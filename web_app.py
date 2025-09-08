@@ -50,6 +50,23 @@ PAGE = r"""
       .muted { opacity: 0.7; }
       footer { margin-top: 28px; font-size: 14px; opacity: 0.75; text-align: center; }
       a { color: inherit; }
+      .footer-buttons { display: flex; justify-content: center; align-items: center; gap: 12px; margin-top: 8px; flex-wrap: wrap; }
+      .btn { display: inline-block; padding: 10px 14px; border-radius: 999px; text-decoration: none; font-weight: 600; border: 1px solid #888; background: #111; color: #fff; }
+      .btn:hover { filter: brightness(1.15); }
+      .btn--rainbow {
+        background: #ff0040;
+        animation: rainbowSolid 2s linear infinite;
+        border: none; color: #fff;
+      }
+      @keyframes rainbowSolid {
+        0%   { background:#ff0040; }
+        16.6%{ background:#ff8c00; }
+        33.3%{ background:#ffee00; color:#000; }
+        50%  { background:#33cc33; color:#000; }
+        66.6%{ background:#00aaff; color:#fff; }
+        83.3%{ background:#8a2be2; color:#fff; }
+        100% { background:#ff0040; color:#fff; }
+      }
     </style>
   </head>
   <body>
@@ -61,6 +78,10 @@ PAGE = r"""
     
 
     <main>
+    <section class="qr-section">
+      <h2 style="margin:0 0 8px 0;">QR Code Generator</h2>
+      <p class="muted" style="margin:0 0 12px 0;">Create minimal QR codes (starting at 21x21). Adjust colors, border, and scale; click the image to download.</p>
+    </section>
     <form method="POST" onsubmit="return false">
       <label>
         Text to encode
@@ -114,7 +135,7 @@ PAGE = r"""
 
     <main>
       <section class="bitmap-section">
-        <h2 style="margin:0 0 8px 0;">Bitmap Text Generator</h2>
+        <h2 style="margin:0 0 8px 0;">Pixel Art Text Generator</h2>
         <p class="muted" style="margin:0 0 12px 0;">Type text below to render as 5x7 pixel characters. Click the image to download.</p>
         <div class="controls">
           <label class="row" style="align-items:center;">
@@ -132,23 +153,24 @@ PAGE = r"""
               <input id="bitmapBorder" type="range" min="0" max="50" step="1" value="0" />
               <span class="muted"><span id="bitmapBorderVal">0</span> modules</span>
             </label>
-            <a id="bitmapDownload" href="#" download="bitmap.png" style="margin-left:auto; text-decoration:none; border:1px solid #999; border-radius:8px; padding:8px 12px;">Download PNG</a>
           </div>
         </div>
         <div class="muted" style="margin-top:6px; font-size:12px;">Note: Very long text will auto-fit to your screen and may appear compressed.</div>
         <div id="bitmapContainer" style="margin-top:8px; width:100%;">
           <canvas id="bitmapCanvas" style="image-rendering: pixelated; border:1px solid #ddd; border-radius:6px; background:#fff; cursor:pointer; max-width:100%; height:auto; min-height:24px;"></canvas>
         </div>
+        <div style="margin-top:8px;">
+          <a id="bitmapDownload" href="#" download="bitmap.png" style="display:none; text-decoration:none; border:1px solid #999; border-radius:8px; padding:8px 12px;">Download PNG</a>
+        </div>
       </section>
     </main>
 
     <footer>
-      Minimal QR generator — No fluff! Size auto-steps up from 21x21 minimum only when needed. 
-      <br>
-      <br>Made by <a href="https://mon5termatt.com" target="_blank" rel="noopener">MON5TERMATT</a>
-      <br>Source Code: <a href="https://github.com/mon5termatt/qr-wplace" target="_blank" rel="noopener">qr-wplace</a>
-      <br>
-      <br><script type='text/javascript' src='https://storage.ko-fi.com/cdn/widget/Widget_2.js'></script><script type='text/javascript'>kofiwidget2.init('Support me on Ko-fi', '#72a4f2', 'Y8Y37UTRU');kofiwidget2.draw();</script> 
+      <div class="footer-buttons">
+        <a class="btn" href="https://mon5termatt.com" target="_blank" rel="noopener">Made by MON5TERMATT</a>
+        <a class="btn btn--rainbow" href="https://ko-fi.com/mon5termatt" target="_blank" rel="noopener">Support on Ko‑fi</a>
+        <a class="btn" href="https://github.com/mon5termatt/qr-wplace" target="_blank" rel="noopener">Source Code</a>
+      </div>
     </footer>
   </body>
   <script>
@@ -514,13 +536,24 @@ PAGE = r"""
             fitPx = Math.min(px, maxPx);
           }
         }
-        drawBitmap(bitmapCanvas, txt, fitPx, '#000', b);
+        const hasText = (txt && txt.trim().length > 0);
+        // Hide or show canvas based on text
+        if (bitmapCanvas) bitmapCanvas.style.display = hasText ? '' : 'none';
+        if (hasText) {
+          drawBitmap(bitmapCanvas, txt, fitPx, '#000', b);
+        } else if (bitmapCanvas) {
+          // Clear canvas when hidden
+          bitmapCanvas.width = 0; bitmapCanvas.height = 0;
+        }
         // Update download link
         if (bitmapDownload){
-          const dataUrl = bitmapCanvas.toDataURL('image/png');
-          bitmapDownload.href = dataUrl;
-          const slug = (txt || 'bitmap').replace(/[^A-Za-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,50) || 'bitmap';
-          bitmapDownload.download = slug + '.png';
+          bitmapDownload.style.display = hasText ? '' : 'none';
+          if (hasText){
+            const dataUrl = bitmapCanvas.toDataURL('image/png');
+            bitmapDownload.href = dataUrl;
+            const slug = (txt || 'bitmap').replace(/[^A-Za-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,50) || 'bitmap';
+            bitmapDownload.download = slug + '.png';
+          }
         }
       }
 
