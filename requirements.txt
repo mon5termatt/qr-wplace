@@ -1,0 +1,4 @@
+Flask>=3.0.0,<4
+segno>=1.6.6
+qrcode[pil]>=7.4
+
