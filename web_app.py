@@ -16,7 +16,7 @@ PAGE = r"""
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>MON5TERMATT — QR Generator</title>
+    <title>QR Generator for Wplace</title>
     <style>
       :root { color-scheme: light dark; }
       body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; padding: 24px; max-width: 820px; margin: 0 auto; line-height: 1.45; }
@@ -44,7 +44,7 @@ PAGE = r"""
   <body>
     <header>
       <canvas id="logoCanvas" class="brand-logo" width="800" height="90" aria-label="MON5TERMATT"></canvas>
-      <div class="tag">Built for <a href="https://wplace.live" target="_blank" rel="noopener">wplace.live</a> | Make QR codes to fit the smallest possible space, without fluff.</div>
+      <div class="tag">Built for <a href="https://wplace.live" target="_blank" rel="noopener">wplace.live</a> by <a href="https://mon5termatt.com" target="_blank" rel="noopener">MON5TERMATT</a> | Make QR codes to fit the smallest possible space, without fluff.</div>
     </header>
 
     
@@ -102,7 +102,11 @@ PAGE = r"""
     </main>
 
     <footer>
-      Minimal QR generator — No fluff! Size auto-steps up from 21x21 minimum only when needed.
+      Minimal QR generator — No fluff! Size auto-steps up from 21x21 minimum only when needed. 
+      <br>
+      <br>Made by <a href="https://mon5termatt.com" target="_blank" rel="noopener">MON5TERMATT</a>
+      <br>Source Code: <a href="https://github.com/mon5termatt/qr-wplace" target="_blank" rel="noopener">qr-wplace</a>
+      <br>
       <br><script type='text/javascript' src='https://storage.ko-fi.com/cdn/widget/Widget_2.js'></script><script type='text/javascript'>kofiwidget2.init('Support me on Ko-fi', '#72a4f2', 'Y8Y37UTRU');kofiwidget2.draw();</script> 
     </footer>
   </body>
