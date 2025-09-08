@@ -1,4 +1,14 @@
-QR Generator (Minimal 21x21+)
+# Minimal Wplace QR Generator (SMALL QR CODES!)
+
+> I needed a small QR code for pixel art on Wplace. But all the ones I found online generated oversized images that didn't scale well on the website using overlays. (using 3 pixels for "one" pixel etc.)
+
+> Disclaimer:
+> 
+> This was written mostly with AI. I'm not gonna spend too much time on this. 
+
+---
+
+### About this App
 
 A tiny Flask web app for generating the smallest possible standard QR codes (min version 1 = 21x21 modules), with live preview and download.
 
@@ -43,6 +53,3 @@ Usage notes
 - Minimum size is standard QR version 1 (21x21). App steps up versions only when data requires.
 - Border adds quiet-zone modules around the code; scale sets pixels per module.
 - Transparent background sets the light modules to transparent (RGBA PNG).
-
-License
-MIT
