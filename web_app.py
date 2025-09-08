@@ -2,7 +2,7 @@
 import io
 from typing import Optional, Tuple
 
-from flask import Flask, render_template_string, request, send_file, jsonify
+from flask import Flask, render_template_string, request, send_file, jsonify, Response
 import re
 import hashlib
 
@@ -17,6 +17,17 @@ PAGE = r"""
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>QR Generator for Wplace</title>
+    <meta name="description" content="Minimal QR code generator (starts at 21x21). Live preview, no fluff." />
+    <meta name="theme-color" content="#000000" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Minimal QR Generator" />
+    <meta property="og:description" content="Generate the smallest QR codes (min 21x21). Live, configurable, downloadable." />
+    <meta property="og:url" content="{{ request.url_root }}" />
+    <meta property="og:image" content="/favicon.svg" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Minimal QR Generator" />
+    <meta name="twitter:description" content="Generate tiny QR codes (21x21+), live preview, download." />
     <style>
       :root { color-scheme: light dark; }
       body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; padding: 24px; max-width: 820px; margin: 0 auto; line-height: 1.45; }
@@ -37,7 +48,7 @@ PAGE = r"""
       img { image-rendering: pixelated; border: 1px solid #ddd; width: 145px; height: 145px; border-radius: 6px; background: #fff; cursor: pointer; }
       .stats { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
       .muted { opacity: 0.7; }
-      footer { margin-top: 28px; font-size: 14px; opacity: 0.75; }
+      footer { margin-top: 28px; font-size: 14px; opacity: 0.75; text-align: center; }
       a { color: inherit; }
     </style>
   </head>
@@ -160,8 +171,9 @@ PAGE = r"""
         return chars.length * (columnsPerChar*px) + Math.max(0, chars.length-1) * (spacing*px);
       }
 
-      function drawWordAt(ctx, word, color, xStart, yStart, px){
+      function drawWordAt(ctx, word, colorOrFn, xStart, yStart, px, totalWidth){
         const columnsPerChar = 5; const rows = 7; const spacing = 2; const chars = String(word).toUpperCase().split('');
+        const isFn = typeof colorOrFn === 'function';
         let x = xStart;
         for (const ch of chars){
           const glyphRows = FONT_5x7[ch] || FONT_5x7['-'];
@@ -169,14 +181,34 @@ PAGE = r"""
             const bits = glyphRows[row] || 0;
             for (let col=0; col<columnsPerChar; col++){
               const on = (bits >> (columnsPerChar-1-col)) & 1;
-              if (on){ ctx.fillStyle = color; ctx.fillRect(x + col*px, yStart + row*px, px, px); }
+              if (on){
+                const xPos = x + col*px;
+                const t = totalWidth > 0 ? Math.min(1, Math.max(0, (xPos) / totalWidth)) : 0;
+                ctx.fillStyle = isFn ? colorOrFn(t) : colorOrFn;
+                ctx.fillRect(xPos, yStart + row*px, px, px);
+              }
             }
           }
           x += columnsPerChar*px + spacing*px;
         }
       }
 
-      function drawLogo(canvas, topText, bottomText, color){
+      function hslToRgb(h, s, l){
+        h = (h % 360 + 360) % 360; s = Math.max(0, Math.min(1, s)); l = Math.max(0, Math.min(1, l));
+        const c = (1 - Math.abs(2*l - 1)) * s;
+        const x = c * (1 - Math.abs((h/60) % 2 - 1));
+        const m = l - c/2;
+        let r=0,g=0,b=0;
+        if (0<=h && h<60){ r=c; g=x; b=0; }
+        else if (60<=h && h<120){ r=x; g=c; b=0; }
+        else if (120<=h && h<180){ r=0; g=c; b=x; }
+        else if (180<=h && h<240){ r=0; g=x; b=c; }
+        else if (240<=h && h<300){ r=x; g=0; b=c; }
+        else { r=c; g=0; b=x; }
+        return [Math.round((r+m)*255), Math.round((g+m)*255), Math.round((b+m)*255)];
+      }
+
+      function drawLogo(canvas, topText, bottomText, color, hueOffset){
         const ctx = canvas.getContext('2d');
         const padding = 6; const spacingCols = 2; const lineGapPx = 8; // space between lines
         let px = 6; // pixel block size
@@ -192,16 +224,23 @@ PAGE = r"""
         const botX = padding + Math.floor((Math.max(wTop,wBot) - wBot)/2);
         const topY = padding;
         const botY = padding + rows*px + lineGapPx;
-        drawWordAt(ctx, topText, color, topX, topY, px);
-        drawWordAt(ctx, bottomText, color, botX, botY, px);
+        const colorSupplier = (color === 'rainbow')
+          ? (t) => { const [r,g,b] = hslToRgb((t*360 + (hueOffset||0)), 1, 0.6); return `rgb(${r},${g},${b})`; }
+          : color;
+        drawWordAt(ctx, topText, colorSupplier, topX, topY, px, widthPx);
+        drawWordAt(ctx, bottomText, colorSupplier, botX, botY, px, widthPx);
       }
 
       const logo = document.getElementById('logoCanvas');
       const darkInput = document.getElementById('dark');
       if (logo){
-        const draw = ()=> drawLogo(logo, 'QR Code Generator for wplace', 'by MON5TERMATT', '#fff');
-        draw();
-        if (darkInput){ darkInput.addEventListener('input', draw); }
+        let hue = 0;
+        function animate(ts){
+          hue = (hue + 0.6) % 360; // speed: degrees per frame
+          drawLogo(logo, 'QR Code Generator for wplace', 'by MON5TERMATT', 'rainbow', hue);
+          requestAnimationFrame(animate);
+        }
+        requestAnimationFrame(animate);
       }
       const img = document.getElementById('qrImg');
       const preview = document.getElementById('preview');
@@ -543,6 +582,21 @@ def meta():
         scale=scale,
     )
     return jsonify(dict(version=version, black=black, white=white, total=size * size, size=size))
+
+
+@app.get('/favicon.svg')
+def favicon_svg() -> Response:
+    svg = (
+        "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'>"
+        "<rect width='64' height='64' rx='8' fill='#000'/>"
+        "<rect x='10' y='10' width='44' height='44' fill='#fff'/>"
+        "<rect x='14' y='14' width='12' height='12' fill='#000'/>"
+        "<rect x='38' y='14' width='12' height='12' fill='#000'/>"
+        "<rect x='14' y='38' width='12' height='12' fill='#000'/>"
+        "<rect x='28' y='28' width='8' height='8' fill='#000'/>"
+        "</svg>"
+    )
+    return Response(svg, mimetype='image/svg+xml')
 
 
 if __name__ == '__main__':
