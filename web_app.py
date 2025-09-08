@@ -83,12 +83,12 @@ PAGE = r"""
         <div class="row">
           <label class="row" style="align-items:center;">
             Border
-            <input id="border" type="range" name="border" min="0" max="8" step="1" value="{{ border or 0 }}" />
+            <input id="border" type="range" name="border" min="0" max="50" step="1" value="{{ border or 0 }}" />
             <span class="muted"><span id="borderVal">{{ border or 0 }}</span> modules</span>
           </label>
           <label class="row" style="align-items:center;">
             Scale
-            <input id="scale" type="range" name="scale" min="1" max="8" step="1" value="{{ scale or 1 }}" />
+            <input id="scale" type="range" name="scale" min="1" max="50" step="1" value="{{ scale or 1 }}" />
             <span class="muted"><span id="scaleVal">{{ scale or 1 }}</span> px/module</span>
           </label>
         </div>
@@ -110,6 +110,36 @@ PAGE = r"""
         <div class="muted" style="margin-top:8px">Border: <span id="borderDisp">{{ border or 0 }}</span> · Scale: <span id="scaleDisp">{{ scale or 1 }}</span> px/module</div>
       </div>
     </div>
+    </main>
+
+    <main>
+      <section class="bitmap-section">
+        <h2 style="margin:0 0 8px 0;">Bitmap Text Generator</h2>
+        <p class="muted" style="margin:0 0 12px 0;">Type text below to render as 5x7 pixel characters. Click the image to download.</p>
+        <div class="controls">
+          <label class="row" style="align-items:center;">
+            Text
+            <input type="text" id="bitmapInput" placeholder="Enter text to render as bitmap" style="flex:1; min-width:280px;" />
+          </label>
+          <div class="row" style="align-items:center;">
+            <label class="row" style="align-items:center;">
+              Scale
+              <input id="bitmapScale" type="range" min="1" max="50" step="1" value="6" />
+              <span class="muted"><span id="bitmapScaleVal">6</span> px/module</span>
+            </label>
+            <label class="row" style="align-items:center;">
+              Border
+              <input id="bitmapBorder" type="range" min="0" max="50" step="1" value="0" />
+              <span class="muted"><span id="bitmapBorderVal">0</span> modules</span>
+            </label>
+            <a id="bitmapDownload" href="#" download="bitmap.png" style="margin-left:auto; text-decoration:none; border:1px solid #999; border-radius:8px; padding:8px 12px;">Download PNG</a>
+          </div>
+        </div>
+        <div class="muted" style="margin-top:6px; font-size:12px;">Note: Very long text will auto-fit to your screen and may appear compressed.</div>
+        <div id="bitmapContainer" style="margin-top:8px; width:100%;">
+          <canvas id="bitmapCanvas" style="image-rendering: pixelated; border:1px solid #ddd; border-radius:6px; background:#fff; cursor:pointer; max-width:100%; height:auto; min-height:24px;"></canvas>
+        </div>
+      </section>
     </main>
 
     <footer>
@@ -163,7 +193,25 @@ PAGE = r"""
         '9': [0b01110,0b10001,0b10001,0b01111,0b00001,0b00010,0b11100],
         '-': [0b00000,0b00000,0b00000,0b11111,0b00000,0b00000,0b00000],
         ' ': [0b00000,0b00000,0b00000,0b00000,0b00000,0b00000,0b00000],
-        "'": [0b00100,0b00100,0b01000,0b00000,0b00000,0b00000,0b00000]
+        "'": [0b00100,0b00100,0b01000,0b00000,0b00000,0b00000,0b00000],
+        '_': [0b00000,0b00000,0b00000,0b00000,0b00000,0b00000,0b11111],
+        '+': [0b00100,0b00100,0b11111,0b00100,0b00100,0b00000,0b00000],
+        '=': [0b00000,0b11111,0b00000,0b11111,0b00000,0b00000,0b00000],
+        '[': [0b11110,0b10000,0b10000,0b10000,0b10000,0b10000,0b11110],
+        ']': [0b01111,0b00001,0b00001,0b00001,0b00001,0b00001,0b01111],
+        '{': [0b00110,0b00100,0b00100,0b11000,0b00100,0b00100,0b00110],
+        '}': [0b01100,0b00100,0b00100,0b00011,0b00100,0b00100,0b01100],
+        '|': [0b00100,0b00100,0b00100,0b00100,0b00100,0b00100,0b00100],
+        '\\': [0b10000,0b01000,0b00100,0b00010,0b00001,0b00000,0b00000],
+        '/': [0b00001,0b00010,0b00100,0b01000,0b10000,0b00000,0b00000],
+        ':': [0b00000,0b00100,0b00000,0b00000,0b00000,0b00100,0b00000],
+        ';': [0b00000,0b00100,0b00000,0b00000,0b00000,0b00100,0b01000],
+        '"': [0b01010,0b01010,0b00000,0b00000,0b00000,0b00000,0b00000],
+        '>': [0b10000,0b01000,0b00100,0b00010,0b00100,0b01000,0b10000],
+        '<': [0b00001,0b00010,0b00100,0b01000,0b00100,0b00010,0b00001],
+        '.': [0b00000,0b00000,0b00000,0b00000,0b00000,0b00100,0b00000],
+        ',': [0b00000,0b00000,0b00000,0b00000,0b00000,0b00100,0b01000],
+        '?': [0b01110,0b10001,0b00010,0b00100,0b00100,0b00000,0b00100]
       };
 
       function measureWordPx(word, px, spacing){
@@ -171,12 +219,65 @@ PAGE = r"""
         return chars.length * (columnsPerChar*px) + Math.max(0, chars.length-1) * (spacing*px);
       }
 
+      const GLYPH_CACHE = {};
+
+      function synthesizeGlyph5x7(ch){
+        // Render the character to an offscreen canvas and sample to 5x7 bitmap
+        const off = document.createElement('canvas');
+        const W = 56, H = 56; // generous draw area
+        off.width = W; off.height = H;
+        const octx = off.getContext('2d');
+        octx.clearRect(0,0,W,H);
+        octx.fillStyle = '#000';
+        // Try to fit the glyph height to 7 rows with padding
+        const targetRows = 7;
+        // Start with a font size that fits vertically and adjust
+        let fontSize = 40;
+        octx.font = `${fontSize}px monospace`;
+        octx.textBaseline = 'middle';
+        octx.textAlign = 'center';
+        // Draw center, then sample
+        octx.fillText(ch, W/2, H/2);
+        // Convert to 5x7 by sampling blocks
+        const cols = 5; const rows = 7;
+        const margin = 6; // around the glyph for safety
+        const sampleWidth = W - margin*2;
+        const sampleHeight = H - margin*2;
+        const cellW = sampleWidth / cols;
+        const cellH = sampleHeight / rows;
+        const data = octx.getImageData(0,0,W,H).data;
+        const bitmap = [];
+        for (let r=0; r<rows; r++){
+          let rowBits = 0;
+          for (let c=0; c<cols; c++){
+            // Sample a point near the center of the cell
+            const sx = Math.floor(margin + c*cellW + cellW/2);
+            const sy = Math.floor(margin + r*cellH + cellH/2);
+            const idx = (sy*W + sx) * 4;
+            const alpha = data[idx+3];
+            const on = alpha > 32 ? 1 : 0;
+            rowBits = (rowBits << 1) | on;
+          }
+          bitmap.push(rowBits);
+        }
+        return bitmap;
+      }
+
+      function getGlyph5x7(ch){
+        const up = String(ch).toUpperCase();
+        if (FONT_5x7[up]) return FONT_5x7[up];
+        if (GLYPH_CACHE[up]) return GLYPH_CACHE[up];
+        const bm = synthesizeGlyph5x7(up);
+        GLYPH_CACHE[up] = bm;
+        return bm;
+      }
+
       function drawWordAt(ctx, word, colorOrFn, xStart, yStart, px, totalWidth){
         const columnsPerChar = 5; const rows = 7; const spacing = 2; const chars = String(word).toUpperCase().split('');
         const isFn = typeof colorOrFn === 'function';
         let x = xStart;
         for (const ch of chars){
-          const glyphRows = FONT_5x7[ch] || FONT_5x7['-'];
+          const glyphRows = getGlyph5x7(ch);
           for (let row=0; row<rows; row++){
             const bits = glyphRows[row] || 0;
             for (let col=0; col<columnsPerChar; col++){
@@ -263,6 +364,13 @@ PAGE = r"""
       const borderDisp = document.getElementById('borderDisp');
       const scaleDisp = document.getElementById('scaleDisp');
       const dl = document.getElementById('dlLink');
+      const bitmapCanvas = document.getElementById('bitmapCanvas');
+      const bitmapInput = document.getElementById('bitmapInput');
+      const bitmapScale = document.getElementById('bitmapScale');
+      const bitmapScaleVal = document.getElementById('bitmapScaleVal');
+      const bitmapBorder = document.getElementById('bitmapBorder');
+      const bitmapBorderVal = document.getElementById('bitmapBorderVal');
+      const bitmapDownload = document.getElementById('bitmapDownload');
 
       function buildUrl() {
         const params = new URLSearchParams(window.location.search);
@@ -360,6 +468,77 @@ PAGE = r"""
           dl.click();
         }
       });
+
+      // Bitmap Text Generator
+      function drawBitmap(canvas, text, px, color, borderModules){
+        const ctx = canvas.getContext('2d');
+        const spacingCols = 2; const columnsPerChar = 5; const rows = 7;
+        const padding = Math.max(0, borderModules|0) * px;
+        const chars = String(text || '').toUpperCase().split('');
+        if (chars.length === 0){ canvas.width = 0; canvas.height = 0; return; }
+        const widthPx = padding*2 + chars.length * (columnsPerChar*px) + (Math.max(0, chars.length-1)) * (spacingCols*px);
+        const heightPx = padding*2 + rows*px;
+        canvas.width = widthPx; canvas.height = heightPx;
+        ctx.clearRect(0,0,widthPx,heightPx);
+        let x = padding;
+        for (const ch of chars){
+          const glyph = getGlyph5x7(ch);
+          for (let r=0;r<rows;r++){
+            const bits = glyph[r] || 0;
+            for (let c=0;c<columnsPerChar;c++){
+              const on = (bits >> (columnsPerChar-1-c)) & 1;
+              if (on){ ctx.fillStyle = color; ctx.fillRect(x + c*px, padding + r*px, px, px); }
+            }
+          }
+          x += columnsPerChar*px + spacingCols*px;
+        }
+      }
+
+      function updateBitmap(){
+        const txt = bitmapInput ? bitmapInput.value : '';
+        const px = bitmapScale ? parseInt(bitmapScale.value, 10) : 6;
+        const b = bitmapBorder ? parseInt(bitmapBorder.value, 10) : 0;
+        if (bitmapScaleVal) bitmapScaleVal.textContent = String(px);
+        if (bitmapBorderVal) bitmapBorderVal.textContent = String(b);
+        // Compute max px to fit container width
+        const container = document.getElementById('bitmapContainer');
+        let fitPx = px;
+        if (container){
+          const columnsPerChar = 5; const spacingCols = 2; const rows = 7;
+          const chars = String(txt || '').toUpperCase().split('');
+          const padding = Math.max(0, b|0);
+          const containerWidth = container.clientWidth || container.offsetWidth || 0;
+          if (chars.length > 0 && containerWidth > 0){
+            const modulesWide = (padding*2) + (chars.length * columnsPerChar) + (Math.max(0, chars.length-1) * spacingCols);
+            const maxPx = Math.max(1, Math.floor(containerWidth / modulesWide));
+            fitPx = Math.min(px, maxPx);
+          }
+        }
+        drawBitmap(bitmapCanvas, txt, fitPx, '#000', b);
+        // Update download link
+        if (bitmapDownload){
+          const dataUrl = bitmapCanvas.toDataURL('image/png');
+          bitmapDownload.href = dataUrl;
+          const slug = (txt || 'bitmap').replace(/[^A-Za-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,50) || 'bitmap';
+          bitmapDownload.download = slug + '.png';
+        }
+      }
+
+      if (bitmapInput){
+        bitmapInput.addEventListener('input', updateBitmap);
+      }
+      if (bitmapScale){
+        bitmapScale.addEventListener('input', updateBitmap);
+      }
+      if (bitmapBorder){
+        bitmapBorder.addEventListener('input', updateBitmap);
+      }
+      if (bitmapCanvas){
+        bitmapCanvas.addEventListener('click', function(){ if (bitmapDownload) bitmapDownload.click(); });
+      }
+      // initial
+      updateBitmap();
+      window.addEventListener('resize', updateBitmap);
     })();
   </script>
   </html>
