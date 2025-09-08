@@ -1,5 +1,7 @@
 # Minimal Wplace QR Generator (SMALL QR CODES!)
 
+# https://qr.mon5termatt.com
+
 > I needed a small QR code for pixel art on Wplace. But all the ones I found online generated oversized images that didn't scale well on the website using overlays. (using 3 pixels for "one" pixel etc.)
 
 > Disclaimer:
