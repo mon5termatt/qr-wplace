@@ -122,8 +122,8 @@ PAGE = r"""
       </div>
       <div class="stats">
         <div><strong>Version</strong>: <span id="ver">{{ version or 3 }}</span> (<span id="sizeValPx">{{ size or 29 }}</span>x<span id="sizeValPx2">{{ size or 29 }}</span>)</div>
-        <div><strong>Black</strong>: <span id="blackVal">{{ black or 0 }}</span></div>
-        <div><strong>White</strong>: <span id="whiteVal">{{ white or 0 }}</span></div>
+        <div><strong>Foreground</strong>: <span id="blackVal">{{ black or 0 }}</span></div>
+        <div><strong>Background</strong>: <span id="whiteVal">{{ white or 0 }}</span></div>
         <div><strong>Total</strong>: <span id="totalVal">{{ total or 841 }}</span></div>
         <div style="margin-top:8px">
           <a id="dlLink" href="{{ ('/download?data=' ~ (data|urlencode) ~ '&dark=' ~ (dark|urlencode) ~ '&light=' ~ (light|urlencode) ~ '&transparent=' ~ ((1 if transparent else 0)) ~ '&border=' ~ border ~ '&scale=' ~ scale) if data else '#' }}">Download PNG</a>
@@ -144,20 +144,41 @@ PAGE = r"""
           </label>
           <div class="row" style="align-items:center;">
             <label class="row" style="align-items:center;">
-              Scale
-              <input id="bitmapScale" type="range" min="1" max="50" step="1" value="6" />
-              <span class="muted"><span id="bitmapScaleVal">6</span> px/module</span>
-            </label>
-            <label class="row" style="align-items:center;">
               Border
               <input id="bitmapBorder" type="range" min="0" max="50" step="1" value="0" />
               <span class="muted"><span id="bitmapBorderVal">0</span> modules</span>
+            </label>
+            <label class="row" style="align-items:center;">
+              Scale
+              <input id="bitmapScale" type="range" min="1" max="50" step="1" value="1" />
+              <span class="muted"><span id="bitmapScaleVal">1</span> px/module</span>
+            </label>
+          </div>
+          <div class="row" style="align-items:center;">
+            <label class="row" style="align-items:center;">
+              Letter Spacing
+              <input id="letterSpacing" type="range" min="0" max="10" step="1" value="1" />
+              <span class="muted"><span id="letterSpacingVal">1</span> px</span>
+            </label>
+            <label class="row" style="align-items:center;">
+              Space Width
+              <input id="spaceWidth" type="range" min="1" max="5" step="1" value="3" />
+              <span class="muted"><span id="spaceWidthVal">3</span> spaces</span>
+            </label>
+          </div>
+          <div class="row" style="align-items:center;">
+            <label class="row" style="align-items:center;">
+              <input id="invertColors" type="checkbox" onchange="updateBitmap()" />
+              <span>White text On Transparent</span>
             </label>
           </div>
         </div>
         <div class="muted" style="margin-top:6px; font-size:12px;">Note: Very long text will auto-fit to your screen and may appear compressed.</div>
         <div id="bitmapContainer" style="margin-top:8px; width:100%;">
           <canvas id="bitmapCanvas" style="image-rendering: pixelated; border:1px solid #ddd; border-radius:6px; background:#fff; cursor:pointer; max-width:100%; height:auto; min-height:24px;"></canvas>
+        </div>
+        <div id="bitmapStats" style="margin-top:8px; font-size:14px; color:#666; display:none;">
+          <span id="bitmapBlackPixels">0</span> foreground pixels, <span id="bitmapWhitePixels">0</span> background pixels, <span id="bitmapTotalPixels">0</span> total pixels
         </div>
         <div style="margin-top:8px;">
           <a id="bitmapDownload" href="#" download="bitmap.png" style="display:none; text-decoration:none; border:1px solid #999; border-radius:8px; padding:8px 12px;">Download PNG</a>
@@ -233,7 +254,8 @@ PAGE = r"""
         '<': [0b00001,0b00010,0b00100,0b01000,0b00100,0b00010,0b00001],
         '.': [0b00000,0b00000,0b00000,0b00000,0b00000,0b00100,0b00000],
         ',': [0b00000,0b00000,0b00000,0b00000,0b00000,0b00100,0b01000],
-        '?': [0b01110,0b10001,0b00010,0b00100,0b00100,0b00000,0b00100]
+        '?': [0b01110,0b10001,0b00010,0b00100,0b00100,0b00000,0b00100],
+        '#': [0b01010,0b01010,0b11111,0b01010,0b11111,0b01010,0b01010]
       };
 
       function measureWordPx(word, px, spacing){
@@ -392,6 +414,15 @@ PAGE = r"""
       const bitmapScaleVal = document.getElementById('bitmapScaleVal');
       const bitmapBorder = document.getElementById('bitmapBorder');
       const bitmapBorderVal = document.getElementById('bitmapBorderVal');
+      const letterSpacing = document.getElementById('letterSpacing');
+      const letterSpacingVal = document.getElementById('letterSpacingVal');
+      const spaceWidth = document.getElementById('spaceWidth');
+      const spaceWidthVal = document.getElementById('spaceWidthVal');
+      const invertColors = document.getElementById('invertColors');
+      const bitmapStats = document.getElementById('bitmapStats');
+      const bitmapBlackPixels = document.getElementById('bitmapBlackPixels');
+      const bitmapWhitePixels = document.getElementById('bitmapWhitePixels');
+      const bitmapTotalPixels = document.getElementById('bitmapTotalPixels');
       const bitmapDownload = document.getElementById('bitmapDownload');
 
       function buildUrl() {
@@ -492,55 +523,140 @@ PAGE = r"""
       });
 
       // Bitmap Text Generator
-      function drawBitmap(canvas, text, px, color, borderModules){
+      function drawBitmap(canvas, text, px, color, borderModules, letterSpacing, spaceWidth, invert){
         const ctx = canvas.getContext('2d');
-        const spacingCols = 2; const columnsPerChar = 5; const rows = 7;
+        const columnsPerChar = 5; const rows = 7;
         const padding = Math.max(0, borderModules|0) * px;
         const chars = String(text || '').toUpperCase().split('');
-        if (chars.length === 0){ canvas.width = 0; canvas.height = 0; return; }
-        const widthPx = padding*2 + chars.length * (columnsPerChar*px) + (Math.max(0, chars.length-1)) * (spacingCols*px);
-        const heightPx = padding*2 + rows*px;
-        canvas.width = widthPx; canvas.height = heightPx;
-        ctx.clearRect(0,0,widthPx,heightPx);
-        let x = padding;
-        for (const ch of chars){
-          const glyph = getGlyph5x7(ch);
-          for (let r=0;r<rows;r++){
-            const bits = glyph[r] || 0;
-            for (let c=0;c<columnsPerChar;c++){
-              const on = (bits >> (columnsPerChar-1-c)) & 1;
-              if (on){ ctx.fillStyle = color; ctx.fillRect(x + c*px, padding + r*px, px, px); }
-            }
+        if (chars.length === 0){ canvas.width = 0; canvas.height = 0; return {black: 0, white: 0, total: 0}; }
+        
+        // Calculate total width with spacing
+        let totalWidth = padding * 2;
+        for (let i = 0; i < chars.length; i++) {
+          const ch = chars[i];
+          if (ch === ' ') {
+            totalWidth += spaceWidth * px;
+          } else {
+            totalWidth += columnsPerChar * px;
           }
-          x += columnsPerChar*px + spacingCols*px;
+          // Add letter spacing between characters (except after last character)
+          if (i < chars.length - 1) {
+            totalWidth += letterSpacing * px;
+          }
         }
+        
+        const heightPx = padding*2 + rows*px;
+        canvas.width = totalWidth; canvas.height = heightPx;
+        
+        // Set background color
+        if (invert) {
+          ctx.clearRect(0,0,totalWidth,heightPx);
+          ctx.fillStyle = '#FFFFFF';
+        } else {
+          ctx.clearRect(0,0,totalWidth,heightPx);
+          ctx.fillStyle = color;
+        }
+        
+        let blackPixels = 0;
+        let whitePixels = 0;
+        let x = padding;
+        
+        for (let i = 0; i < chars.length; i++) {
+          const ch = chars[i];
+          if (ch === ' ') {
+            // Skip drawing for spaces, just advance position
+            x += spaceWidth * px;
+          } else {
+            const glyph = getGlyph5x7(ch);
+            for (let r=0;r<rows;r++){
+              const bits = glyph[r] || 0;
+              for (let c=0;c<columnsPerChar;c++){
+                const on = (bits >> (columnsPerChar-1-c)) & 1;
+                if (on){ 
+                  ctx.fillRect(x + c*px, padding + r*px, px, px);
+                  if (invert) {
+                    whitePixels += px * px;
+                  } else {
+                    blackPixels += px * px;
+                  }
+                }
+              }
+            }
+            x += columnsPerChar * px;
+          }
+          // Add letter spacing between characters (except after last character)
+          if (i < chars.length - 1) {
+            x += letterSpacing * px;
+          }
+        }
+        
+        // Calculate total pixels and remaining pixels
+        const totalPixels = totalWidth * heightPx;
+        if (invert) {
+          // When inverted, only count white text pixels, background is transparent
+          blackPixels = 0;
+          whitePixels = whitePixels; // already calculated
+        } else {
+          // When normal, only count black text pixels, background is transparent
+          blackPixels = blackPixels; // already calculated
+          whitePixels = 0;
+        }
+        
+        return {black: blackPixels, white: whitePixels, total: totalPixels};
       }
 
       function updateBitmap(){
         const txt = bitmapInput ? bitmapInput.value : '';
-        const px = bitmapScale ? parseInt(bitmapScale.value, 10) : 6;
+        const px = bitmapScale ? parseInt(bitmapScale.value, 10) : 1;
         const b = bitmapBorder ? parseInt(bitmapBorder.value, 10) : 0;
+        const ls = letterSpacing ? parseInt(letterSpacing.value, 10) : 1;
+        const sw = spaceWidth ? parseInt(spaceWidth.value, 10) : 3;
+        const invert = invertColors ? invertColors.checked : false;
         if (bitmapScaleVal) bitmapScaleVal.textContent = String(px);
         if (bitmapBorderVal) bitmapBorderVal.textContent = String(b);
+        if (letterSpacingVal) letterSpacingVal.textContent = String(ls);
+        if (spaceWidthVal) spaceWidthVal.textContent = String(sw);
         // Compute max px to fit container width
         const container = document.getElementById('bitmapContainer');
         let fitPx = px;
         if (container){
-          const columnsPerChar = 5; const spacingCols = 2; const rows = 7;
+          const columnsPerChar = 5; const rows = 7;
           const chars = String(txt || '').toUpperCase().split('');
           const padding = Math.max(0, b|0);
           const containerWidth = container.clientWidth || container.offsetWidth || 0;
           if (chars.length > 0 && containerWidth > 0){
-            const modulesWide = (padding*2) + (chars.length * columnsPerChar) + (Math.max(0, chars.length-1) * spacingCols);
+            // Calculate total width with spacing
+            let modulesWide = padding * 2;
+            for (let i = 0; i < chars.length; i++) {
+              const ch = chars[i];
+              if (ch === ' ') {
+                modulesWide += sw;
+              } else {
+                modulesWide += columnsPerChar;
+              }
+              // Add letter spacing between characters (except after last character)
+              if (i < chars.length - 1) {
+                modulesWide += ls;
+              }
+            }
             const maxPx = Math.max(1, Math.floor(containerWidth / modulesWide));
             fitPx = Math.min(px, maxPx);
           }
         }
         const hasText = (txt && txt.trim().length > 0);
-        // Hide or show canvas based on text
+        // Hide or show canvas and stats based on text
         if (bitmapCanvas) bitmapCanvas.style.display = hasText ? '' : 'none';
+        if (bitmapStats) bitmapStats.style.display = hasText ? '' : 'none';
         if (hasText) {
-          drawBitmap(bitmapCanvas, txt, fitPx, '#000', b);
+          // Set visual background color for preview (gray for white text, white for black text)
+          if (bitmapCanvas) {
+            bitmapCanvas.style.background = invert ? '#666' : '#fff';
+          }
+          const pixelCounts = drawBitmap(bitmapCanvas, txt, fitPx, '#000', b, ls, sw, invert);
+          // Update pixel count display
+          if (bitmapBlackPixels) bitmapBlackPixels.textContent = String(pixelCounts.black);
+          if (bitmapWhitePixels) bitmapWhitePixels.textContent = String(pixelCounts.white);
+          if (bitmapTotalPixels) bitmapTotalPixels.textContent = String(pixelCounts.total);
         } else if (bitmapCanvas) {
           // Clear canvas when hidden
           bitmapCanvas.width = 0; bitmapCanvas.height = 0;
@@ -565,6 +681,15 @@ PAGE = r"""
       }
       if (bitmapBorder){
         bitmapBorder.addEventListener('input', updateBitmap);
+      }
+      if (letterSpacing){
+        letterSpacing.addEventListener('input', updateBitmap);
+      }
+      if (spaceWidth){
+        spaceWidth.addEventListener('input', updateBitmap);
+      }
+      if (invertColors){
+        invertColors.addEventListener('change', updateBitmap);
       }
       if (bitmapCanvas){
         bitmapCanvas.addEventListener('click', function(){ if (bitmapDownload) bitmapDownload.click(); });
